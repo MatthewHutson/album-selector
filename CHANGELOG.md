@@ -1,4 +1,7 @@
 # Changelog
-Added the discord bot functions
-In particular, tha ability to create polls, end them early, get the results and do this in dms with a user
-User and bot key are set in .env in src (hidden by gitignore)
+Added the ability to prompt the bot to send another batch of suggestions
+Added reroll button to poll
+Adjusted the Timer on the Poll
+Added The Albums to the laptop local albums JSON
+Added release year to album class
+Added the function to update the save with correct number of listens after selection

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Callable
 from copy import deepcopy
+from random import shuffle
 
 # -- Global Variables -- #
 short: int = 60
@@ -25,19 +26,23 @@ class Album():
     name: str
     artist: str
     length: int # -- Minutes
+    year: int = None
     listen_count : int = 0
 
     # -- Properties -- #
     @property
     def time(self) -> str:
-        hours: int = self.length // 60
-        minutes: int = self.length % 60
+        hours: int = str(self.length // 60)
+        minutes: int = str(self.length % 60)
+
+        if len(minutes) == 1:
+            minutes = "0" + minutes
 
         return f"{hours}:{minutes}"
 
     # -- Methods -- #
     def __str__(self) -> str:
-        return f"{self.artist} {self.name} ({self.time})"
+        return f"{self.artist} - {self.name} ({self.time})"
 
     def __len__(self) -> int:
         return self.length
@@ -74,15 +79,21 @@ class Manager():
     # -- Properties -- #
     @property
     def short(self) -> list[Album]:
-        return [album for album in self.albums if categories.SHORT(album.length)]
+        albums = [album for album in self.albums if categories.SHORT(album.length)]
+        shuffle(albums)
+        return albums
 
     @property
     def medium(self) -> list[Album]:
-        return [album for album in self.albums if categories.MEDIUM(album.length)]
+        albums = [album for album in self.albums if categories.MEDIUM(album.length)]
+        shuffle(albums)
+        return albums
 
     @property
     def long(self) -> list[Album]:
-        return [album for album in self.albums if categories.LONG(album.length)]
+        albums = [album for album in self.albums if categories.LONG(album.length)]
+        shuffle(albums)
+        return albums
 
     @property
     def artists(self) -> list[str]:
@@ -105,7 +116,7 @@ class Manager():
         self.sort()
 
     def __str__(self) -> int:
-        '''Outputs a table of the a;lbums stored in the manager.'''
+        '''Outputs a table of the allbums stored in the manager.'''
         name_header, artist_header = "Album Name", "Artist"
         max_len_name, max_len_artist = len(name_header), len(artist_header)
 

@@ -26,12 +26,12 @@ def selction(data: Manager, num: int = 3) -> tuple[Album, Album, Album]:
 
     return short_album, medium_album, long_album
 
-def output_selection(data: Manager) -> str:
+def output_selection(data: Manager) -> Manager:
     '''Outputs the selection from the manager'''
     short_album, medium_album, long_album = selction(data)
     out_manager = Manager([short_album, medium_album, long_album])
 
-    return str(out_manager)
+    return out_manager
 
 # -- Testing -- #
 if __name__ == "__main__":
@@ -48,4 +48,4 @@ if __name__ == "__main__":
     print()
     print(selction(data))
     print()
-    print(output_selection(data))
+    print(str(output_selection(data)))

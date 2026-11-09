@@ -1,0 +1,1 @@
+Add follow album cases
