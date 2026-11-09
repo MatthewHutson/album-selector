@@ -1,1 +1,3 @@
-Albums/*
+albums.json
+src/.env
+*/__pycache__/*

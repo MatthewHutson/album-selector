@@ -1,8 +1,4 @@
 # Changelog
-Added the changelog
-Made classes file and added neccesary classes
-Made tests for classes file
-Maded selector_functions file with functions to make the selection
-Made tests for selector_functions
-Added Albums Folder (For JSONS)
-Added gitignore
+Added the discord bot functions
+In particular, tha ability to create polls, end them early, get the results and do this in dms with a user
+User and bot key are set in .env in src (hidden by gitignore)
