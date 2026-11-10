@@ -1,0 +1,6 @@
+dotenv
+datetime
+asyncio
+discord
+dataclasses
+typing

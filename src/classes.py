@@ -7,17 +7,17 @@ from copy import deepcopy
 from random import shuffle
 
 # -- Global Variables -- #
-short: int = 60
-medium: int = 90
+SHORT_TIME: int = 60
+MEDIUM_TIME: int = 90
 
 # -- Classes -- #
 class categories(Enum):
     '''
     Functions to categorise albums by length
     '''
-    SHORT: Callable[[int], bool] = (lambda x: x <= short)
-    MEDIUM: Callable[[int], bool]  = (lambda x: x > short and x <= medium)
-    LONG: Callable[[int], bool]  = (lambda x: x > medium)
+    SHORT: Callable[[int], bool] = (lambda x: x <= SHORT_TIME)
+    MEDIUM: Callable[[int], bool]  = (lambda x: x > SHORT_TIME and x <= MEDIUM_TIME)
+    LONG: Callable[[int], bool]  = (lambda x: x > MEDIUM_TIME)
 
 @dataclass
 class Album():
@@ -42,7 +42,7 @@ class Album():
 
     # -- Methods -- #
     def __str__(self) -> str:
-        return f"{self.artist} - {self.name} ({self.time})"
+        return f"{self.artist} - {self.name}"
 
     def __len__(self) -> int:
         return self.length

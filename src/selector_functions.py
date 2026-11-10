@@ -16,20 +16,27 @@ def first(data: Manager, num: int) -> dict[str, list[Album]]:
 
     return categories
 
-def selction(data: Manager, num: int = 3) -> tuple[Album, Album, Album]:
+def selction(data: Manager, num: int = 3) -> list[Album]:
     '''Selects a random album from the filtered albums'''
     possibilities: dict = first(data, num)
 
-    short_album: Album = choice(possibilities["short"])
-    medium_album: Album = choice(possibilities["medium"])
-    long_album: Album = choice(possibilities["long"])
+    short = possibilities["short"]
+    medium = possibilities["medium"]
+    long = possibilities["long"]
 
-    return short_album, medium_album, long_album
+    nested_albums: list[list[Album]] = [short, medium, long]
+    out: list[Album] = []
+
+    for category in nested_albums:
+        if len(category) != 0:
+            out.append(choice(category))
+    
+    return out
 
 def output_selection(data: Manager) -> Manager:
     '''Outputs the selection from the manager'''
-    short_album, medium_album, long_album = selction(data)
-    out_manager = Manager([short_album, medium_album, long_album])
+    albums = selction(data)
+    out_manager = Manager(albums)
 
     return out_manager
 

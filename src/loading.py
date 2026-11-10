@@ -1,26 +1,38 @@
 # -- Imports -- #
 from classes import *
 import json
+import os
 
-# -- Function -- #
-def load_albums() -> Manager:
-    with open("albums.json", "r") as file:
+# -- Functions -- #
+def existance(id: int) -> None:
+    '''Creates a file for a user_id if not present'''
+
+    path: str = f"albums/{id}.json"
+
+    if not os.path.isfile(path):
+        with open(path, "w") as file:
+            json.dump([], file, indent = 4)
+
+def load_albums(id: int) -> Manager:
+    existance(id)
+
+    with open(f"albums/{id}.json", "r") as file:
         load_data: list[dict] = json.load(file)
         data = Manager()
 
         for instance in load_data:
             album = Album(**instance)
             data.add(album)
-
+    
     return data
 
 def create_poll_data(data: Manager) -> dict[str, Album]:
     return {str(album): album for album in data.albums}
 
-def save_data(data: Manager) -> None:
+def save_data(id: int, data: Manager) -> None:
     album_data = [album.__dict__ for album in data.albums]
 
-    with open("albums.json", "w") as file:
+    with open(f"albums/{id}.json", "w") as file:
         json.dump(album_data, file, indent = 4)
 
 # -- Testing -- #

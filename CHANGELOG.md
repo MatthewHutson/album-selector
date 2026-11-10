@@ -1,5 +1,9 @@
 # Changelog
-Added double up protection
-Added a message command to shut the bot off when unused
-Removed the initial poll send on startup (uneccesary)
-Gave initial instruction 
+Added bot_run.sh file
+added help, add and update commands
+renamed albums command to suggest
+on_message responds to sender rather than admin user
+made stop command only work for admins
+bug fixes
+added safeguards to system to prevent invalid albums being added
+many minor changes
