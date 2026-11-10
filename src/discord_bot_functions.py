@@ -19,6 +19,7 @@ intents = discord.Intents(2048)
 intents.polls = True
 intents.messages = True
 client = discord.Client(intents = intents)
+active: bool = False
 
 # -- Functions -- #
 def create_poll(name: str, answers: list[str], multiple: bool = False, time: timedelta = timedelta(hours = 1)) -> discord.Poll:
@@ -72,12 +73,17 @@ async def user_select(user: discord.User, name: str, answers: list[str], time: f
 
 async def select_album(user: discord.user, time: float = 1800) -> Album | None:
     '''DMs the user to select one of the albums in the JSOn file before saving it'''
+    global active
+
+    active = True
+
     data: Manager = load_albums()
     selections: Manager = output_selection(data)
     album_dict: dict = create_poll_data(selections)
     answers = list(album_dict.keys()) + ["Reroll"]
 
     answer = await user_select(user, "Select an Album", answers, time)
+    active = False
 
     if answer is None:
         return None
@@ -94,22 +100,25 @@ async def select_album(user: discord.user, time: float = 1800) -> Album | None:
 async def on_ready() -> None:
     # -- Bot Main -- #
     print(f'{client.user} has connected to Discord!')
-
     user = await client.fetch_user(USER)
-    await select_album(user)
+    await user.send(content = f"Hello <@{user.id}>, valid commands:")
+    await user.send(content = "> !albums - send a short, medium and long album in a poll")
+    await user.send(content = "> !stop - terminate the bot")
 
 @client.event
 async def on_message(msg: discord.Message) -> None:
     if msg.author != client.user:
         user = await client.fetch_user(USER)
 
-        if msg.content == "!prompt" and msg.author == user:
-            await select_album(user)
+        if msg.author == user and not active:
+            match msg.content:
+                case "!albums": await select_album(user)
+                case "!stop": await client.close()
 
 # -- Main Function -- #
 def run_bot() -> None:
     try: client.run(TOKEN)
-    except Exception as e: pass
+    except Exception as e: raise e.t
 
 if __name__ == "__main__":
     run_bot()
