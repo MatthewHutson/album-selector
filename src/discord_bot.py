@@ -4,9 +4,10 @@ from classes import *
 from selector_functions import *
 from loading import *
 from datetime import timedelta
-from dotenv import load_dotenv
+from dotenv import load_dotenv # type: ignore
 from asyncio import sleep
-import discord
+from copy import deepcopy
+import discord # type: ignore
 import os
 import subprocess
 
@@ -45,6 +46,17 @@ def get_winner(poll: discord.Poll) -> str:
         return None
     else:
         return best_response.text
+def add_admin_commands(user: discord.User) -> dict:
+    # -- Get Admin Commands -- #
+    global admin, commands, admin_commands
+
+    total_commands = deepcopy(commands)
+
+    if user.id == admin.id: 
+        for command, function in admin_commands.items():
+            total_commands[command] = function
+
+    return total_commands
 
 async def user_select(user: discord.User, name: str, answers: list[str], time: float = 300, multiple: bool = False) -> str:
     '''DMs a user with a poll to make a selection'''
@@ -100,25 +112,21 @@ async def select_album(user: discord.User, args: list[str] = [], time: float = 3
         
 async def bot_help(user: discord.User, args: list[str] = []) -> None:
     '''Recieve a list of bot commands'''
-    global commands
+
+    total_commands = add_admin_commands(user)
 
     await user.send(content = "Command List:")
 
-    for name, function in commands.items():
+    for name, function in total_commands.items():
         await user.send(content = f"> {name} - {function.__doc__}")
 
 async def stop(user: discord.User, args: list[str] = []) -> None:
     '''Terminate the bot'''
 
-    admin: discord.User = client.fetch_user(ADMIN)
+    if active_polls == 0: await client.close()
+    else: await user.send(content = "Bot too busy to shut down.")
 
-    if user.id == admin.id:
-        if active_polls == 0: await client.close()
-        else: await user.send(content = "Bot too busy to shut down.")
-    else:
-        await user.send(content = "You are not authorised to shut the bot down!")
-
-    print(f"{client.user} is now offline. \n")
+    print(f"\n{client.user} is now offline.\n")
 
 async def add_album(user: discord.User, args: list[str] = []):
     '''Allows the user to add a new album directly'''
@@ -140,7 +148,7 @@ async def add_album(user: discord.User, args: list[str] = []):
                 active_polls += 1
 
                 await user.send(content = f"Are you sure you want to add the {album.name} by {album.artist} that has a duration of {album.time} (h:m) and was released in {album.year}?")
-                result = await user_select(user, f"Add {album.name} to file?", ["Yes", "No"], time = 60)
+                result = user_select(user, f"Add {album.name} to file?", ["Yes", "No"], time = 60)
 
                 active_polls -= 1
 
@@ -161,7 +169,7 @@ async def update(user: discord.User, args: list[str] = []) -> None:
 
     if active_polls == 0:
         await client.close()
-        print(f"{client.user} is now offline. \n")
+        print(f"\n{client.user} is now offline.\n")
         subprocess.run(["bash", "bot.sh"], shell = True)
     else:
         await user.send(content = "Bot too busy to restart.")
@@ -169,38 +177,46 @@ async def update(user: discord.User, args: list[str] = []) -> None:
 # -- Events -- #
 @client.event
 async def on_ready() -> None:
-    # -- Bot Main -- #
+    global admin
+
+    admin = await client.fetch_user(ADMIN)
     print(f'{client.user} has connected to Discord!\n')
 
 @client.event
 async def on_message(msg: discord.Message) -> None:
-    global active_polls, commands
+    global active_polls, commands, admin_commands
 
-    if msg.author != client.user:
-        user = msg.author
+    user: discord.User = msg.author 
+
+    if user != client.user:
+        total_commands = add_admin_commands(user)
+
         content : list[str] = msg.content.split(" ")
         command, args = content[0], content[1:]
 
         prev_active_polls = active_polls
 
         try:
-            if command in commands.keys():
-                function: Callable = commands[command]
+            if command in total_commands.keys():
+                function: Callable = total_commands[command]
                 await function(user = user, args = args)
+
         except Exception as e:
             if prev_active_polls != active_polls:
                 active_polls -= 1
-
-            print(e)
+                raise e
                 
 
 # -- Other Setup -- #
 commands: dict[str, Callable[[discord.User, list[str]], None]] = {
     "!help": bot_help,
     "!suggest": select_album,
-    "!add": add_album,
+    "!add": add_album
+}
+
+admin_commands : dict[str, Callable[[discord.User, list[str]], None]] = {
     "!update": update,
-    "!stop": stop,
+    "!stop": stop
 }
 
 # -- Main Function -- #
