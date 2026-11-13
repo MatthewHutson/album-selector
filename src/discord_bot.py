@@ -60,6 +60,9 @@ def add_admin_commands(user: discord.User) -> dict:
 
 async def user_select(user: discord.User, name: str, answers: list[str], time: float = 300, multiple: bool = False) -> str:
     '''DMs a user with a poll to make a selection'''
+    global active_polls
+    
+    active_polls += 1
 
     hours: int =  (time // 3600)
     minutes: int = ((time // 60) % 60)
@@ -86,10 +89,6 @@ async def user_select(user: discord.User, name: str, answers: list[str], time: f
 async def select_album(user: discord.User, args: list[str] = [], time: float = 300) -> None:
     '''Send a short, medium and long album in a poll'''
 
-    global active_polls
-
-    active_polls += 1
-
     data: Manager = load_albums(user.id)
     selections: Manager = output_selection(data)
 
@@ -98,7 +97,6 @@ async def select_album(user: discord.User, args: list[str] = [], time: float = 3
         answers = list(album_dict.keys()) + ["Reroll"]
 
         answer = await user_select(user, "Select an Album", answers, time)
-        active_polls -= 1
 
         if answer == "Reroll":
             await select_album(user, args, time)
@@ -107,7 +105,6 @@ async def select_album(user: discord.User, args: list[str] = [], time: float = 3
             album.listen_count += 1
             save_data(user.id, data)
     else:
-        active_polls -= 1
         await user.send(content = f"No albums saved for {user.display_name}")
         
 async def bot_help(user: discord.User, args: list[str] = []) -> None:
@@ -129,8 +126,7 @@ async def stop(user: discord.User, args: list[str] = []) -> None:
     print(f"\n{client.user} is now offline.\n")
 
 async def add_album(user: discord.User, args: list[str] = []):
-    '''Allows the user to add a new album directly'''
-    global active_polls
+    '''Add a new album to your saved albums'''
 
     if len(args) == 4:
         try:
@@ -140,17 +136,14 @@ async def add_album(user: discord.User, args: list[str] = []):
             assert args[2] >= 0
             assert args[3] >= 0 
         except:
-            await user.send(content = f"Invalid arguments: duration and/or year is not a valid positive integers!")
+            await user.send(content = f"Invalid Arguments: duration and/or year is not a valid positive integers!")
         else:
             album = Album(*args)
 
             if len(str(album)) < 50:
-                active_polls += 1
 
                 await user.send(content = f"Are you sure you want to add the {album.name} by {album.artist} that has a duration of {album.time} (h:m) and was released in {album.year}?")
                 result = user_select(user, f"Add {album.name} to file?", ["Yes", "No"], time = 60)
-
-                active_polls -= 1
 
                 if result == "Yes":
                     data: Manager = load_albums(user.id)
@@ -162,7 +155,7 @@ async def add_album(user: discord.User, args: list[str] = []):
             else:
                 await user.send(content = "**ERROR: Too many characters in the name and artist name combined for discord to handle!**")
     else:
-        await user.send(content = "Invalid arguments: requires **[name] [artist] [duration (minutes)] [release year]**")
+        await user.send(content = "Invalid Arguments: requires **[name] [artist] [duration (minutes)] [release year]**")
 
 async def update(user: discord.User, args: list[str] = []) -> None:
     '''Updates and restarts the bot'''
@@ -173,6 +166,26 @@ async def update(user: discord.User, args: list[str] = []) -> None:
         subprocess.run(["bash", "bot.sh"], shell = True)
     else:
         await user.send(content = "Bot too busy to restart.")
+
+async def remove(user: discord.User, args: list[str] = []) -> None:
+    '''Remove an album from your saved albums.'''
+    if len(args) == 1:
+        name: str = args[0]
+        data: Manager = load_albums(user.id)
+        possible_albums: list[Album] = data.get_albums(name)
+        album_strings: dict[str, Album] = {str(album): album for album in possible_albums}
+
+        if len(possible_albums) <= 10 and len(possible_albums) != 0:
+            album_str: str = await user_select(user, "Pick an album to remove", list(album_strings.keys()), time = 300)
+
+            if album_str != None:
+                album: Album = album_strings[album_str]
+                data.remove(album)
+                save_data(user.id, data)
+        else:
+            await user.send(content = f"ERROR: Too many albums named {name} to load in a poll!")
+    else:
+        await user.send(content = f"Invalid Arguments: Please Provide **[Name]** of the album as an argument!")
     
 # -- Events -- #
 @client.event
@@ -204,14 +217,16 @@ async def on_message(msg: discord.Message) -> None:
         except Exception as e:
             if prev_active_polls != active_polls:
                 active_polls -= 1
-                raise e
+
+            raise e
                 
 
 # -- Other Setup -- #
 commands: dict[str, Callable[[discord.User, list[str]], None]] = {
     "!help": bot_help,
     "!suggest": select_album,
-    "!add": add_album
+    "!add": add_album,
+    "!remove": remove
 }
 
 admin_commands : dict[str, Callable[[discord.User, list[str]], None]] = {
@@ -222,7 +237,7 @@ admin_commands : dict[str, Callable[[discord.User, list[str]], None]] = {
 # -- Main Function -- #
 def run_bot() -> None:
     try: client.run(TOKEN)
-    except Exception as e: raise e.t
+    except Exception as e: raise e
 
 if __name__ == "__main__":
     run_bot()

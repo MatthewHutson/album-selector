@@ -111,6 +111,12 @@ class Manager():
             self.albums.append(album)
             self.sort()
 
+    def get_albums(self, name: str) -> list[Album]:
+        return [album for album in self.albums if album.name == name]
+
+    def remove(self, album: Album) -> None:
+        self.albums.remove(album)
+
     def __init__(self, albums: list[Album] = []) -> None:
         self.albums = albums
         self.sort()
