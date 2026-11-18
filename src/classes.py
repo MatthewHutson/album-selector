@@ -111,8 +111,8 @@ class Manager():
             self.albums.append(album)
             self.sort()
 
-    def get_albums(self, name: str) -> list[Album]:
-        return [album for album in self.albums if album.name == name]
+    def get_albums(self, name: str, artist: str) -> list[Album]:
+        return [album for album in self.albums if album.name == name and album.artist == artist]
 
     def remove(self, album: Album) -> None:
         self.albums.remove(album)

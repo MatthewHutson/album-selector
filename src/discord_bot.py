@@ -15,12 +15,13 @@ import subprocess
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 ADMIN = os.getenv('ADMIN')
+PREFIX = os.getenv("PREFIX")
 
 intents = discord.Intents(2048)
 intents.polls = True
 intents.messages = True
 client = discord.Client(intents = intents)
-active_polls: int = 0
+active_operations: int = 0
 
 # -- Functions -- #
 def create_poll(name: str, answers: list[str], multiple: bool = False, time: timedelta = timedelta(hours = 1)) -> discord.Poll:
@@ -46,23 +47,22 @@ def get_winner(poll: discord.Poll) -> str:
         return None
     else:
         return best_response.text
+    
 def add_admin_commands(user: discord.User) -> dict:
     # -- Get Admin Commands -- #
     global admin, commands, admin_commands
 
-    total_commands = deepcopy(commands)
+    total_commands = {PREFIX + command: function for command, function in commands.items()}
 
     if user.id == admin.id: 
         for command, function in admin_commands.items():
-            total_commands[command] = function
+            total_commands[PREFIX + command] = function
 
     return total_commands
 
 async def user_select(user: discord.User, name: str, answers: list[str], time: float = 300, multiple: bool = False) -> str:
     '''DMs a user with a poll to make a selection'''
-    global active_polls
-    
-    active_polls += 1
+    global active_operations
 
     hours: int =  (time // 3600)
     minutes: int = ((time // 60) % 60)
@@ -120,7 +120,7 @@ async def bot_help(user: discord.User, args: list[str] = []) -> None:
 async def stop(user: discord.User, args: list[str] = []) -> None:
     '''Terminate the bot'''
 
-    if active_polls == 0: await client.close()
+    if active_operations == 1: await client.close()
     else: await user.send(content = "Bot too busy to shut down.")
 
     print(f"\n{client.user} is now offline.\n")
@@ -136,31 +136,35 @@ async def add_album(user: discord.User, args: list[str] = []):
             assert args[2] >= 0
             assert args[3] >= 0 
         except:
-            await user.send(content = f"Invalid Arguments: duration and/or year is not a valid positive integers!")
+            await user.send(content = f"**Invalid Arguments**: duration and/or year is not a valid positive integers!")
         else:
             album = Album(*args)
+            data: Manager = load_albums(user.id)
+            possible_albums = data.get_albums(album.name, album.artist)
 
-            if len(str(album)) < 50:
+            if len(str(album)) < 50 and len(possible_albums) == 0:
 
-                await user.send(content = f"Are you sure you want to add the {album.name} by {album.artist} that has a duration of {album.time} (h:m) and was released in {album.year}?")
-                result = user_select(user, f"Add {album.name} to file?", ["Yes", "No"], time = 60)
+                await user.send(content = f"Are you sure you want to add **{album.name}** by **{album.artist}** that has a duration of **{album.time}** (h:m) and was released in **{album.year}**?")
+                result = await user_select(user, f"Add {album.name} to your file?", ["Yes", "No"], time = 30)
 
                 if result == "Yes":
-                    data: Manager = load_albums(user.id)
                     data.add(album)
-
                     save_data(user.id, data)
                     await user.send(content = f"{album} successfully added!")
 
-            else:
-                await user.send(content = "**ERROR: Too many characters in the name and artist name combined for discord to handle!**")
+            elif len(possible_albums) != 0:
+                await user.send(content = f"**ERROR**: An album named **{album.name}** by **{album.artist}** already exists in your save!")
+
+            elif len(str(album)) >= 50:
+                await user.send(content = "**ERROR**: Too many characters in the name and artist name combined for discord to handle!")
+
     else:
-        await user.send(content = "Invalid Arguments: requires **[name] [artist] [duration (minutes)] [release year]**")
+        await user.send(content = "**Invalid Arguments**: requires **[name], [artist], [duration (minutes)], [release year]**")
 
 async def update(user: discord.User, args: list[str] = []) -> None:
     '''Updates and restarts the bot'''
 
-    if active_polls == 0:
+    if active_operations == 1:
         await client.close()
         print(f"\n{client.user} is now offline.\n")
         subprocess.run(["bash", "bot.sh"], shell = True)
@@ -169,23 +173,29 @@ async def update(user: discord.User, args: list[str] = []) -> None:
 
 async def remove(user: discord.User, args: list[str] = []) -> None:
     '''Remove an album from your saved albums.'''
-    if len(args) == 1:
+    if len(args) == 2:
         name: str = args[0]
+        artist: str = args[1]
         data: Manager = load_albums(user.id)
-        possible_albums: list[Album] = data.get_albums(name)
-        album_strings: dict[str, Album] = {str(album): album for album in possible_albums}
+        possible_albums = data.get_albums(name, artist)
 
-        if len(possible_albums) <= 10 and len(possible_albums) != 0:
-            album_str: str = await user_select(user, "Pick an album to remove", list(album_strings.keys()), time = 300)
+        if len(possible_albums) != 0:
+            out: str = await user_select(user, f"Are you sure you want to remove {name} by {artist}?", ["Yes", "No"], time = 30)
 
-            if album_str != None:
-                album: Album = album_strings[album_str]
+            if out == "Yes":
+                album: Album = possible_albums[0]
                 data.remove(album)
                 save_data(user.id, data)
-        else:
-            await user.send(content = f"ERROR: Too many albums named {name} to load in a poll!")
+        
+
+        else: await user.send(content = f"**ERROR**: No album named **{name}** was found!")
+
     else:
-        await user.send(content = f"Invalid Arguments: Please Provide **[Name]** of the album as an argument!")
+        await user.send(content = f"**Invalid Arguments**: Please Provide **[Name], [Artist]** as arguments!")
+
+async def active_count(user: discord.User, args: list[str] = []) -> None:
+    '''Get the current number of active operations performed by the bot'''
+    await user.send(content = f'There {"are" if active_operations != 1 else "is"} {active_operations} active operation{"s" if active_operations != 1 else ""} right now!')
     
 # -- Events -- #
 @client.event
@@ -197,17 +207,20 @@ async def on_ready() -> None:
 
 @client.event
 async def on_message(msg: discord.Message) -> None:
-    global active_polls, commands, admin_commands
+    global active_operations, commands, admin_commands
 
     user: discord.User = msg.author 
 
     if user != client.user:
         total_commands = add_admin_commands(user)
 
-        content : list[str] = msg.content.split(" ")
-        command, args = content[0], content[1:]
+        setup: list[str] = msg.content.split(" ", maxsplit = 1)
+        command = setup[0]
+        
+        args: list[str] = setup[1].split(", ") if len(setup) != 1 else []
 
-        prev_active_polls = active_polls
+        prev_active_polls = active_operations
+        active_operations += 1
 
         try:
             if command in total_commands.keys():
@@ -215,23 +228,25 @@ async def on_message(msg: discord.Message) -> None:
                 await function(user = user, args = args)
 
         except Exception as e:
-            if prev_active_polls != active_polls:
-                active_polls -= 1
+            if prev_active_polls != active_operations:
+                active_operations -= 1
 
             raise e
-                
+
+        active_operations -= 1
 
 # -- Other Setup -- #
 commands: dict[str, Callable[[discord.User, list[str]], None]] = {
-    "!help": bot_help,
-    "!suggest": select_album,
-    "!add": add_album,
-    "!remove": remove
+    "help": bot_help,
+    "suggest": select_album,
+    "add": add_album,
+    "remove": remove
 }
 
 admin_commands : dict[str, Callable[[discord.User, list[str]], None]] = {
-    "!update": update,
-    "!stop": stop
+    "update": update,
+    "stop": stop,
+    "active_count": active_count
 }
 
 # -- Main Function -- #
